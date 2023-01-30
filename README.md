@@ -6,4 +6,8 @@ The script takes the target image labelled "1.jpg" and scans the camera feed for
 The image shows the script detecting the object and the publisher outputting the data.
 <br/>
 ![image](https://user-images.githubusercontent.com/92841422/215548890-e7adca09-ac4f-4580-b5c8-a0231a35bb85.png)
-
+<br />
+<br />
+You can run the script by
+<br/>
+rosrun realsense2_camera RecogSIFT.py
