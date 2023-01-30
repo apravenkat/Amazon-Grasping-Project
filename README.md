@@ -10,4 +10,4 @@ The image shows the script detecting the object and the publisher outputting the
 <br />
 You can run the script by
 <br/>
-/rosrun realsense2_camera RecogSIFT.py/
+`rosrun realsense2_camera RecogSIFT.py`
