@@ -7,7 +7,8 @@ import pyrealsense2 as rs
 MIN_MATCH_COUNT = 3
 from scipy.spatial.transform import Rotation as R
 # Configure depth and color streams
-
+import rospy
+from std_msgs.msg import String
 class GetObjectLocation:
     def getLocation(self):
         # Get device product line for setting a supporting resolution
@@ -28,7 +29,7 @@ class GetObjectLocation:
             exit(0)
 
         config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-
+        config.enable_record_to_file('test.bag')
         if device_product_line == 'L500':
             config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
         else:
@@ -37,6 +38,9 @@ class GetObjectLocation:
         cfg = pipeline.start(config)
         profile = cfg.get_stream(rs.stream.depth) # Fetch stream profile for depth stream
         intr = profile.as_video_stream_profile().get_intrinsics() # Downcast to video_stream_profile and fetch intrinsics
+        pub = rospy.Publisher('Location', String, queue_size=10)
+        rospy.init_node('LocationPublisher', anonymous=True)
+        rate = rospy.Rate(60)
         try:
             while True:
                 frames = pipeline.wait_for_frames()
@@ -46,7 +50,7 @@ class GetObjectLocation:
                     continue
                 color_image = np.asanyarray(color_frame.get_data())
                 depth_image = np.asanyarray(depth_frame.get_data())
-                cv2.imwrite("Copy.jpg", color_image )
+                #cv2.imwrite("Copy.jpg", color_image )
                 depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
                   
                 depth_colormap_dim = depth_colormap.shape
@@ -83,6 +87,7 @@ class GetObjectLocation:
                 x_center = np.mean(x)
                 y_center = np.mean(y)
                 delta_x = np.abs(np.max(x)-x_center)
+                img_text = ""
                 delta_y = np.abs(np.max(y)-y_center)
                 if len(matches) >= 10:
                     h, w = source.shape[:2]
@@ -100,19 +105,20 @@ class GetObjectLocation:
                                         [rot_mat[2,0],rot_mat[2,1],rot_mat[2,2],z],[0,0,0,1]]) 
                     #hom_matrix = np.array([[0.99,0.0650,-0.1213,0.51],[-0.0596,0.997,-0.04780,-2.143],[-0.124,-0.0401,-0.99145,0.33782],[0,0,0,1]])
                     robot_position = hom_matrix @ np.array([result[0],result[1],result[2],1]).T
-                    img_text = "Delta from EE x: "+str(round(robot_position[0],2))+" y: "+str(round(robot_position[1],2))+" z: "+str(round(robot_position[2],2))
+                    img_text = "x: "+str(round(robot_position[0],2))+" y: "+str(round(robot_position[1],2))+" z: "+str(round(robot_position[2],2))
                     detect = cv2.putText(detect, img_text, np.int32((x_center-delta_x,y_center-delta_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2, cv2.LINE_AA)               
                 
                 img3 = cv2.drawMatches(source,features1,detect,features2,matches,None, flags=2) 
                 cv2.imshow('Matches', img3)
                 #r = R.from_euler('xyz',[0.0504,-0.3324,-0.3643], degrees=False)
-              
+
                 print("Position from the Robot: ",robot_position)
                 #print(np.int32((x_center-delta_x,y_center-delta_y)))
                 #print(np.int32((x_center+delta_x,y_center+delta_y)))
-                
+                pub.publish(img_text)
                 
                 print("World Coordinates :", result)
+                
                 cv2.waitKey(1)
         finally:
             pipeline.stop()
